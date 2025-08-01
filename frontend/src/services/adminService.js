@@ -16,9 +16,9 @@ const adminService = {
     return response.data;
   },
 
-  updateUserRole: async (userId, newRole) => {
-    const response = await api.put(`/api/admin/users/${userId}/role`, {
-      newRole,
+  deleteUser: async (userId, reason) => {
+    const response = await api.delete(`/api/admin/users/${userId}/delete`, {
+      data: { reason },
     });
     return response.data;
   },

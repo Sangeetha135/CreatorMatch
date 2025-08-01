@@ -1,15 +1,16 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { protect } = require('../middleware/authMiddleware');
+const { protect } = require("../middleware/authMiddleware");
+const checkSuspension = require("../middleware/checkSuspension");
 const {
-    createPost,
-    getAllPosts,
-    toggleLike
-} = require('../controllers/postController');
+  createPost,
+  getAllPosts,
+  toggleLike,
+} = require("../controllers/postController");
 
 // Protected routes
-router.post('/', protect, createPost);
-router.get('/', protect, getAllPosts);
-router.put('/:id/like', protect, toggleLike);
+router.post("/", protect, checkSuspension, createPost);
+router.get("/", protect, checkSuspension, getAllPosts);
+router.put("/:id/like", protect, checkSuspension, toggleLike);
 
-module.exports = router; 
+module.exports = router;

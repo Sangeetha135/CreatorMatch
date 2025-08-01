@@ -1291,6 +1291,9 @@ const loginUser = async (req, res) => {
       email: user.email,
       role: user.role,
       isVerified: user.isVerified,
+      isSuspended: !!user.suspendedAt,
+      suspendedAt: user.suspendedAt,
+      suspensionReason: user.suspensionReason,
       ...additionalData,
       token,
     });
@@ -1502,7 +1505,7 @@ const login = async (req, res) => {
     }
 
     // Check if user exists
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).maxTimeMS(15000); // 15 second timeout
     if (!user) {
       return res.status(400).json({
         message: "Invalid email or password",
@@ -1550,13 +1553,36 @@ const login = async (req, res) => {
       email: user.email,
       role: user.role,
       isVerified: user.isVerified,
+      isSuspended: !!user.suspendedAt,
+      suspendedAt: user.suspendedAt,
+      suspensionReason: user.suspensionReason,
       token,
       ...additionalData,
     });
   } catch (error) {
     console.error("Login error:", error);
+
+    // Provide specific error messages for different error types
+    if (
+      error.name === "MongoTimeoutError" ||
+      error.message.includes("timed out")
+    ) {
+      return res.status(503).json({
+        message: "Database connection timeout. Please try again later.",
+        error: "CONNECTION_TIMEOUT",
+      });
+    }
+
+    if (error.name === "MongoServerSelectionError") {
+      return res.status(503).json({
+        message: "Database service unavailable. Please try again later.",
+        error: "DATABASE_UNAVAILABLE",
+      });
+    }
+
     res.status(500).json({
       message: "Server error during login. Please try again.",
+      error: error.name || "UNKNOWN_ERROR",
     });
   }
 };
@@ -1577,6 +1603,9 @@ const getProfile = async (req, res) => {
       email: user.email,
       role: user.role,
       isVerified: user.isVerified,
+      isSuspended: !!user.suspendedAt,
+      suspendedAt: user.suspendedAt,
+      suspensionReason: user.suspensionReason,
     };
 
     if (user.role === "influencer") {

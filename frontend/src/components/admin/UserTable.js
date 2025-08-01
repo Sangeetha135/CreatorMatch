@@ -5,7 +5,7 @@ import {
   ExclamationTriangleIcon,
   CheckCircleIcon,
   XCircleIcon,
-  ShieldCheckIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
 import adminService from "../../services/adminService";
 
@@ -73,8 +73,8 @@ const UserTable = () => {
           actionType,
           actionReason
         );
-      } else if (actionType === "role_change") {
-        await adminService.updateUserRole(actionUser._id, actionReason); // actionReason is the new role
+      } else if (actionType === "delete") {
+        await adminService.deleteUser(actionUser._id, actionReason);
       }
 
       await fetchUsers(); // Refresh the list
@@ -304,15 +304,17 @@ const UserTable = () => {
                           Suspend
                         </button>
                       )}
-                      <button
-                        className="admin-btn admin-btn-secondary admin-btn-sm"
-                        onClick={() => handleUserAction(user, "role_change")}
-                      >
-                        <ShieldCheckIcon
-                          style={{ width: "16px", height: "16px" }}
-                        />
-                        Role
-                      </button>
+                      {user.role !== "admin" && (
+                        <button
+                          className="admin-btn admin-btn-danger admin-btn-sm"
+                          onClick={() => handleUserAction(user, "delete")}
+                        >
+                          <TrashIcon
+                            style={{ width: "16px", height: "16px" }}
+                          />
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -368,43 +370,41 @@ const UserTable = () => {
                   ? "Suspend User"
                   : actionType === "activate"
                   ? "Activate User"
-                  : "Change User Role"}
+                  : "Delete User Account"}
               </h3>
             </div>
             <div className="admin-modal-body">
               <p>
-                Are you sure you want to{" "}
-                {actionType === "role_change"
-                  ? "change the role of"
-                  : actionType}{" "}
-                user <strong>{actionUser?.name}</strong>?
+                {actionType === "delete" ? (
+                  <>
+                    Are you sure you want to permanently delete user{" "}
+                    <strong>{actionUser?.name}</strong>? This action cannot be
+                    undone and will remove all user data, campaigns, and
+                    associated records.
+                  </>
+                ) : (
+                  <>
+                    Are you sure you want to {actionType} user{" "}
+                    <strong>{actionUser?.name}</strong>?
+                  </>
+                )}
               </p>
 
-              {actionType === "role_change" ? (
-                <div className="admin-form-group">
-                  <label className="admin-form-label">New Role:</label>
-                  <select
-                    className="admin-form-select"
-                    value={actionReason}
-                    onChange={(e) => setActionReason(e.target.value)}
-                  >
-                    <option value="">Select Role</option>
-                    <option value="influencer">Influencer</option>
-                    <option value="brand">Brand</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </div>
-              ) : (
-                <div className="admin-form-group">
-                  <label className="admin-form-label">Reason:</label>
-                  <textarea
-                    className="admin-form-textarea"
-                    placeholder="Provide a reason for this action..."
-                    value={actionReason}
-                    onChange={(e) => setActionReason(e.target.value)}
-                  />
-                </div>
-              )}
+              <div className="admin-form-group">
+                <label className="admin-form-label">
+                  {actionType === "delete" ? "Reason for deletion:" : "Reason:"}
+                </label>
+                <textarea
+                  className="admin-form-textarea"
+                  placeholder={
+                    actionType === "delete"
+                      ? "Provide a reason for deleting this account..."
+                      : "Provide a reason for this action..."
+                  }
+                  value={actionReason}
+                  onChange={(e) => setActionReason(e.target.value)}
+                />
+              </div>
             </div>
             <div className="admin-modal-footer">
               <button
@@ -419,12 +419,14 @@ const UserTable = () => {
                     ? "admin-btn-danger"
                     : actionType === "activate"
                     ? "admin-btn-success"
+                    : actionType === "delete"
+                    ? "admin-btn-danger"
                     : "admin-btn-primary"
                 }`}
                 onClick={executeAction}
                 disabled={!actionReason}
               >
-                Confirm
+                {actionType === "delete" ? "Delete User" : "Confirm"}
               </button>
             </div>
           </div>

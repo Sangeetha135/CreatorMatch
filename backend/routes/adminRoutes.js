@@ -5,7 +5,7 @@ const express = require("express");
 const {
   getAllUsers,
   suspendUser,
-  updateUserRole,
+  deleteUser,
   getAnalyticsData,
   getReports,
   handleReport,
@@ -26,7 +26,7 @@ const router = express.Router();
 // 🔐 User Management
 router.get("/users", isAuthenticated, isAdmin, getAllUsers);
 router.put("/users/:id/suspend", isAuthenticated, isAdmin, suspendUser);
-router.put("/users/:id/role", isAuthenticated, isAdmin, updateUserRole);
+router.delete("/users/:id/delete", isAuthenticated, isAdmin, deleteUser);
 
 // 📊 Analytics Dashboard
 router.get("/analytics", isAuthenticated, isAdmin, getAnalyticsData);

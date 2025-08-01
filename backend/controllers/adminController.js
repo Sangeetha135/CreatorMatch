@@ -117,11 +117,10 @@ exports.suspendUser = async (req, res) => {
     }
 
     if (action === "suspend") {
-      user.isVerified = false;
+      // Don't change isVerified to allow login but restrict other actions
       user.suspendedAt = new Date();
       user.suspensionReason = reason;
     } else if (action === "activate") {
-      user.isVerified = true;
       user.suspendedAt = undefined;
       user.suspensionReason = undefined;
     }
@@ -147,30 +146,78 @@ exports.suspendUser = async (req, res) => {
   }
 };
 
-// Update user role
-exports.updateUserRole = async (req, res) => {
+// Delete user account
+exports.deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { newRole } = req.body;
-
-    if (!["brand", "influencer", "admin"].includes(newRole)) {
-      return res.status(400).json({ message: "Invalid role" });
-    }
+    const { reason } = req.body; // Optional reason for deletion
 
     const user = await User.findById(id);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    user.role = newRole;
-    await user.save();
+    // Prevent deleting admin users
+    if (user.role === "admin") {
+      return res.status(403).json({ message: "Cannot delete admin users" });
+    }
 
-    res.json({ message: "User role updated successfully", user });
+    // Store user details for email notification before deletion
+    const userEmail = user.email;
+    const userName = user.name;
+
+    // Delete user and related data
+    await User.findByIdAndDelete(id);
+
+    // Also delete related records based on user role
+    if (user.role === "brand") {
+      await Brand.deleteMany({ brand: id });
+      await Campaign.deleteMany({ brand: id });
+    } else if (user.role === "influencer") {
+      await Influencer.deleteMany({ user: id });
+      // Remove influencer from campaigns
+      await Campaign.updateMany(
+        { influencer: id },
+        { $unset: { influencer: 1 }, status: "cancelled" }
+      );
+    }
+
+    // Delete other related data
+    await Transaction.deleteMany({
+      $or: [{ from: id }, { to: id }],
+    });
+    await Contract.deleteMany({
+      $or: [{ brand: id }, { influencer: id }],
+    });
+    await Report.deleteMany({
+      $or: [{ reporter: id }, { reported: id }],
+    });
+
+    // Send email notification
+    const { sendAccountDeletionEmail } = require("../utils/email");
+    try {
+      await sendAccountDeletionEmail(userEmail, userName);
+    } catch (emailError) {
+      console.error("Failed to send deletion email:", emailError);
+      // Don't fail the deletion if email fails
+    }
+
+    res.json({
+      message: "User account deleted successfully",
+      deletedUser: {
+        _id: id,
+        name: userName,
+        email: userEmail,
+        role: user.role,
+        deletedAt: new Date(),
+        reason: reason || "No reason provided",
+      },
+    });
   } catch (error) {
-    console.error("Update role error:", error);
+    console.error("Delete user error:", error);
     res
       .status(500)
-      .json({ message: "Error updating user role", error: error.message });
+      .json({ message: "Error deleting user account", error: error.message });
   }
 };
 
